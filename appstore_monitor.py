@@ -40,7 +40,16 @@ def get_app_info(app_id: str, default_name: str) -> dict:
             return {
                 "status": "online",
                 "name": result.get("trackName", default_name),
-                "icon": result.get("artworkUrl100", "").replace("100x100bb", "512x512bb")  # 获取高清图标
+                "icon": result.get("artworkUrl100", "").replace("100x100bb", "512x512bb"),  # 获取高清图标
+                "version": result.get("version", "未知版本"),
+                "price": result.get("formattedPrice", "未知价格"),
+                "developer": result.get("sellerName", "未知开发者"),
+                "description": result.get("description", "无描述信息"),
+                "release_notes": result.get("releaseNotes", "无更新说明"),
+                "genre": result.get("primaryGenreName", "未知类别"),
+                "rating": result.get("averageUserRating", "无评分"),
+                "rating_count": result.get("userRatingCount", 0),
+                "url": result.get("trackViewUrl", "")
             }
         return {"status": "offline", "name": default_name}
     
@@ -86,6 +95,32 @@ def is_within_time_range():
     # 检查是否在 8-22 点之间
     return 8 <= hour < 22
 
+def format_app_detail(info, app_id):
+    """格式化应用详细信息"""
+    if info["status"] != "online":
+        return f"- **{info['name']}** (ID: {app_id})"
+    
+    # 基本信息
+    detail = f"- **{info['name']}** (ID: {app_id})\n"
+    detail += f"  - 开发者: {info['developer']}\n"
+    detail += f"  - 版本: {info['version']}\n"
+    detail += f"  - 价格: {info['price']}\n"
+    detail += f"  - 类别: {info['genre']}\n"
+    
+    # 评分信息
+    if info['rating'] != "无评分":
+        detail += f"  - 评分: {info['rating']} ({info['rating_count']}个评价)\n"
+    
+    # 应用链接
+    if info.get('url'):
+        detail += f"  - [App Store 链接]({info['url']})\n"
+    
+    # 图标
+    if info.get('icon'):
+        detail += f"  - ![图标]({info['icon']})\n"
+    
+    return detail
+
 def monitor(force_send=False):
     """执行监控任务"""
     # 如果不是强制发送且不在时间范围内，则跳过
@@ -112,26 +147,26 @@ def monitor(force_send=False):
         info = get_app_info(app_id, default_name)
         
         if info["status"] == "online":
-            online_apps.append(f"- ID: {app_id}, 名称: {info['name']}")
+            online_apps.append(format_app_detail(info, app_id))
             logging.info(f"✅ [ID: {app_id}] 名称: {info['name']}")
         elif info["status"] == "offline":
-            offline_apps.append(f"- ID: {app_id}, 名称: {info['name']}")
+            offline_apps.append(format_app_detail(info, app_id))
             logging.warning(f"🚨 [ID: {app_id}] 应用已下架！名称: {info['name']}")
         else:
-            error_apps.append(f"- ID: {app_id}, 名称: {info['name']}")
+            error_apps.append(format_app_detail(info, app_id))
             logging.error(f"❌ [ID: {app_id}] 查询异常，名称: {info['name']}")
     
     # 构建推送内容
     title = f"AppStore 监控报告 - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    content = "## 在线应用\n"
-    content += "\n".join(online_apps) if online_apps else "- 无在线应用"
+    content = "## 📱 在线应用\n\n"
+    content += "\n\n".join(online_apps) if online_apps else "- 无在线应用"
     
-    content += "\n\n## 已下架应用\n"
-    content += "\n".join(offline_apps) if offline_apps else "- 无下架应用"
+    content += "\n\n## 🚫 已下架应用\n\n"
+    content += "\n\n".join(offline_apps) if offline_apps else "- 无下架应用"
     
     if error_apps:
-        content += "\n\n## 查询异常\n"
-        content += "\n".join(error_apps)
+        content += "\n\n## ❌ 查询异常\n\n"
+        content += "\n\n".join(error_apps)
     
     # 发送到方糖
     send_to_fangtang(title, content)
