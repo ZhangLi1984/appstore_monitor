@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
     # 允许手动触发
 
+# Add this permissions block
+permissions:
+  contents: write
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
