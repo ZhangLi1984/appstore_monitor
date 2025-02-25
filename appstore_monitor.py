@@ -34,10 +34,35 @@ def load_app_status():
         if os.path.exists(STATUS_FILE):
             with open(STATUS_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        return {}  # 如果文件不存在，返回空字典
+        # 如果文件不存在，创建一个初始状态文件
+        else:
+            logging.info(f"状态文件 {STATUS_FILE} 不存在，将创建初始状态文件")
+            create_initial_status_file()
+            with open(STATUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
     except Exception as e:
         logging.error(f"加载应用状态文件失败: {str(e)}")
         return {}
+
+def create_initial_status_file():
+    """创建初始状态文件"""
+    try:
+        app_info = load_app_info()
+        initial_status = {}
+        
+        for app in app_info:
+            app_id = app["id"]
+            initial_status[app_id] = {
+                "status": "unknown",  # 初始状态为未知
+                "name": app["name"],
+                "last_check": "未检查"
+            }
+        
+        with open(STATUS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(initial_status, f, ensure_ascii=False, indent=2)
+        logging.info(f"已创建初始状态文件 {STATUS_FILE}")
+    except Exception as e:
+        logging.error(f"创建初始状态文件失败: {str(e)}")
 
 def save_app_status(status_dict):
     """保存应用状态"""
@@ -173,6 +198,8 @@ def monitor(force_send=False):
     for app in app_info:
         app_id = app["id"]
         default_name = app["name"]
+        
+        # 查询应用状态
         info = get_app_info(app_id, default_name)
         
         # 保存当前状态
@@ -183,7 +210,7 @@ def monitor(force_send=False):
         }
         
         # 检查是否新下架
-        if info["status"] == "offline" and app_id in previous_status and previous_status[app_id]["status"] == "online":
+        if info["status"] == "offline" and app_id in previous_status and previous_status[app_id].get("status") == "online":
             newly_offline_apps.append({
                 "id": app_id,
                 "name": info["name"]
