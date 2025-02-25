@@ -2,10 +2,10 @@ name: AppStore Monitor
 
 on:
   schedule:
-    # 每小时运行一次
-    - cron: '0 * * * *'
+    # Run every 2 hours from 8:00 to 20:00 China time (00:00 to 12:00 UTC)
+    - cron: '0 0,2,4,6,8,10,12 * * *'
   workflow_dispatch:
-    # 允许手动触发
+    # Allow manual triggering
 
 # Add this permissions block
 permissions:
