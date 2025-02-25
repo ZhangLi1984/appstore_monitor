@@ -40,15 +40,8 @@ def get_app_info(app_id: str, default_name: str) -> dict:
             return {
                 "status": "online",
                 "name": result.get("trackName", default_name),
-                "icon": result.get("artworkUrl100", "").replace("100x100bb", "512x512bb"),  # 获取高清图标
-                "version": result.get("version", "未知版本"),
-                "price": result.get("formattedPrice", "未知价格"),
-                "developer": result.get("sellerName", "未知开发者"),
-                "description": result.get("description", "无描述信息"),
-                "release_notes": result.get("releaseNotes", "无更新说明"),
-                "genre": result.get("primaryGenreName", "未知类别"),
-                "rating": result.get("averageUserRating", "无评分"),
-                "rating_count": result.get("userRatingCount", 0),
+                "version": result.get("version", "未知"),
+                "price": result.get("formattedPrice", "未知"),
                 "url": result.get("trackViewUrl", "")
             }
         return {"status": "offline", "name": default_name}
@@ -57,7 +50,7 @@ def get_app_info(app_id: str, default_name: str) -> dict:
         logging.error(f"查询 {app_id} 失败: {str(e)}")
         return {"status": "error", "name": default_name}
 
-def send_to_fangtang(title, content):
+def send_to_fangtang(title, content, short):
     """发送消息到方糖"""
     if not FANGTANG_KEY:
         logging.warning("未设置方糖 KEY，跳过推送")
@@ -67,7 +60,8 @@ def send_to_fangtang(title, content):
         url = f"https://sctapi.ftqq.com/{FANGTANG_KEY}.send"
         data = {
             "title": title,
-            "desp": content
+            "desp": content,
+            "short": short
         }
         response = requests.post(url, data=data, timeout=10)
         response.raise_for_status()
@@ -97,29 +91,10 @@ def is_within_time_range():
 
 def format_app_detail(info, app_id):
     """格式化应用详细信息"""
-    if info["status"] != "online":
-        return f"- **{info['name']}** (ID: {app_id})"
+    status_icon = "✅" if info["status"] == "online" else "🚫" if info["status"] == "offline" else "❌"
     
-    # 基本信息
-    detail = f"- **{info['name']}** (ID: {app_id})\n"
-    detail += f"  - 开发者: {info['developer']}\n"
-    detail += f"  - 版本: {info['version']}\n"
-    detail += f"  - 价格: {info['price']}\n"
-    detail += f"  - 类别: {info['genre']}\n"
-    
-    # 评分信息
-    if info['rating'] != "无评分":
-        detail += f"  - 评分: {info['rating']} ({info['rating_count']}个评价)\n"
-    
-    # 应用链接
-    if info.get('url'):
-        detail += f"  - [App Store 链接]({info['url']})\n"
-    
-    # 图标
-    if info.get('icon'):
-        detail += f"  - ![图标]({info['icon']})\n"
-    
-    return detail
+    # 简洁格式，只显示状态、ID和名称
+    return f"{status_icon} **{info['name']}** (ID: {app_id})"
 
 def monitor(force_send=False):
     """执行监控任务"""
@@ -157,19 +132,34 @@ def monitor(force_send=False):
             logging.error(f"❌ [ID: {app_id}] 查询异常，名称: {info['name']}")
     
     # 构建推送内容
-    title = f"AppStore 监控报告 - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    content = "## 📱 在线应用\n\n"
-    content += "\n\n".join(online_apps) if online_apps else "- 无在线应用"
+    title = f"AppStore 监控报告 - {datetime.now().strftime('%H:%M')}"
     
-    content += "\n\n## 🚫 已下架应用\n\n"
-    content += "\n\n".join(offline_apps) if offline_apps else "- 无下架应用"
+    # 构建简洁的消息内容
+    content = ""
+    
+    if online_apps:
+        content += "## 📱 在线应用\n\n"
+        content += "\n".join(online_apps) + "\n\n"
+    
+    if offline_apps:
+        content += "## 🚫 已下架应用\n\n"
+        content += "\n".join(offline_apps) + "\n\n"
     
     if error_apps:
-        content += "\n\n## ❌ 查询异常\n\n"
-        content += "\n\n".join(error_apps)
+        content += "## ❌ 查询异常\n\n"
+        content += "\n".join(error_apps)
+    
+    # 构建消息卡片内容
+    online_count = len(online_apps)
+    offline_count = len(offline_apps)
+    error_count = len(error_apps)
+    
+    short = f"在线: {online_count} | 下架: {offline_count}"
+    if error_count > 0:
+        short += f" | 异常: {error_count}"
     
     # 发送到方糖
-    send_to_fangtang(title, content)
+    send_to_fangtang(title, content, short)
     logging.info("本轮检查完成")
 
 if __name__ == "__main__":
