@@ -17,6 +17,7 @@ logging.basicConfig(
 COUNTRY_CODE = "cn"  # 中国区
 FANGTANG_KEY = os.environ.get("FANGTANG_KEY", "")  # 从环境变量获取方糖 KEY
 APP_INFO_FILE = "app_info.json"  # 应用信息 JSON 文件
+STATUS_FILE = "app_status.json"  # 应用状态记录文件
 
 def load_app_info():
     """从 JSON 文件加载应用信息"""
@@ -26,6 +27,26 @@ def load_app_info():
     except Exception as e:
         logging.error(f"加载应用信息文件失败: {str(e)}")
         return []
+
+def load_app_status():
+    """加载上次的应用状态"""
+    try:
+        if os.path.exists(STATUS_FILE):
+            with open(STATUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}  # 如果文件不存在，返回空字典
+    except Exception as e:
+        logging.error(f"加载应用状态文件失败: {str(e)}")
+        return {}
+
+def save_app_status(status_dict):
+    """保存应用状态"""
+    try:
+        with open(STATUS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(status_dict, f, ensure_ascii=False, indent=2)
+        logging.info("应用状态已保存")
+    except Exception as e:
+        logging.error(f"保存应用状态失败: {str(e)}")
 
 def get_app_info(app_id: str, default_name: str) -> dict:
     """通过 App ID 获取应用信息"""
@@ -102,6 +123,29 @@ def format_app_detail(info, app_id):
     # 简洁格式，只显示状态、ID和名称
     return f"{status_icon} **{info['name']}** (ID: {app_id})"
 
+def send_offline_alert(newly_offline_apps):
+    """发送应用下架警告"""
+    if not newly_offline_apps:
+        return
+    
+    # 获取中国时间并格式化
+    china_time = get_china_time()
+    time_str = china_time.strftime('%H:%M')
+    
+    # 构建警告标题和内容
+    title = f"⚠️ 应用下架警告 - {time_str} (中国时间)"
+    content = "## 🚨 以下应用刚刚下架\n\n"
+    
+    for app in newly_offline_apps:
+        content += f"🚫 **{app['name']}** (ID: {app['id']})\n\n"
+    
+    # 构建消息卡片内容
+    short = f"有 {len(newly_offline_apps)} 个应用刚刚下架！"
+    
+    # 发送到方糖
+    send_to_fangtang(title, content, short)
+    logging.warning(f"已发送 {len(newly_offline_apps)} 个应用的下架警告")
+
 def monitor(force_send=False):
     """执行监控任务"""
     # 如果不是强制发送且不在时间范围内，则跳过
@@ -111,22 +155,41 @@ def monitor(force_send=False):
     
     logging.info("开始检查应用状态")
     
-    # 加载应用信息
+    # 加载应用信息和上次状态
     app_info = load_app_info()
     if not app_info:
         logging.error("没有找到应用信息，请检查 app_info.json 文件")
         return
     
+    previous_status = load_app_status()
+    current_status = {}  # 用于保存本次检查的状态
+    
     # 构建消息内容
     online_apps = []
     offline_apps = []
     error_apps = []
+    newly_offline_apps = []  # 新下架的应用
     
     for app in app_info:
         app_id = app["id"]
         default_name = app["name"]
         info = get_app_info(app_id, default_name)
         
+        # 保存当前状态
+        current_status[app_id] = {
+            "status": info["status"],
+            "name": info["name"],
+            "last_check": get_china_time().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # 检查是否新下架
+        if info["status"] == "offline" and app_id in previous_status and previous_status[app_id]["status"] == "online":
+            newly_offline_apps.append({
+                "id": app_id,
+                "name": info["name"]
+            })
+        
+        # 按状态分类
         if info["status"] == "online":
             online_apps.append(format_app_detail(info, app_id))
             logging.info(f"✅ [ID: {app_id}] 名称: {info['name']}")
@@ -136,6 +199,13 @@ def monitor(force_send=False):
         else:
             error_apps.append(format_app_detail(info, app_id))
             logging.error(f"❌ [ID: {app_id}] 查询异常，名称: {info['name']}")
+    
+    # 保存当前状态
+    save_app_status(current_status)
+    
+    # 如果有新下架的应用，发送警告
+    if newly_offline_apps:
+        send_offline_alert(newly_offline_apps)
     
     # 获取中国时间并格式化
     china_time = get_china_time()
