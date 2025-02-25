@@ -187,7 +187,7 @@ def monitor(force_send=False):
         return
     
     previous_status = load_app_status()
-    current_status = {}  # 用于保存本次检查的状态
+    current_status = {}  # Create new status dictionary
     
     # 构建消息内容
     online_apps = []
