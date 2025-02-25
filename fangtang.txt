@@ -1,0 +1,233 @@
+国内首创、适配软件和项目超多的极简推送API
+Server酱是什么
+「Server酱」，英文名「ServerChan」，是一款「手机」和「服务器」、「智能设备」之间的通信软件。
+说人话？就是从服务器、路由器等设备上推消息到手机的工具。
+开通并使用上它，只需要一分钟：
+微信扫码登入
+
+设置消息通道
+
+发消息，一般有两种方式：
+
+在支持Server酱的软件界面或配置文件中填入SendKey，即可使用
+
+你也可以自己往 https://sctapi.ftqq.com/<SENDKEY>.send 发送请求，就可以收到消息啦
+
+⚠️ 注意：这里的<SENDKEY>要换成你自己在SendKey页面上复制的，换完以后直接粘贴到浏览器地址栏就可以测试推送消息，网址类似这样：https://sctapi.ftqq.com/<SENDKEY>.send?title=short_title&desp=long_content
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Server酱调用实例
+所有可以发起 http 请求的语言和工具都可以调用，Dart、Go、Java、NodeJS、PHP、Python、Rust、Shell、Swift语言调用实例，请移步 Github仓库 easychen/serverchan-demo
+Server酱支持哪些渠道？
+新版Server酱，是一个支持多消息通道、并对此进行统一管理的平台。
+通过它，可以实现以下消息通道的推送：
+企业微信应用消息：无需安装企业微信客户端，可在微信中直接收到消息，内容显全文
+
+手机客户端：Andorid有官方测试版，iOS 可用 Bark 通道
+
+群机器人：企业微信、钉钉、飞书群
+
+微信服务号和测试号：依赖模板消息接口（微信可能会在某天下线该接口，建议配置多个通道随时切换）
+
+邮件和短信原生不支持，但可以通过自定义通道调用其他云服务来实现
+
+可用应用
+截止2024年2月，Github上有近2000个开源项目支持Server酱
+
+通过 Check酱 可以监测网页变动，推送异动结果
+
+通过 UptimeKuma 可以监控服务器并推送报警
+
+通过 青龙面板 可以运行定时脚本并推送结果
+
+通过 短信转发器 将收到的短信转发到微信
+
+Server酱的限制
+
+
+
+免费会员
+
+订阅会员
+
+资格获得方式
+
+注册即可获得
+
+订阅获得
+
+每天最多发送条数
+
+5
+
+不限制，但每日 API 请求次数上限为 1000
+
+群发
+
+不支持
+
+企业微信通道可通过 openid 参数抄送多人
+
+卡片内容显示
+
+仅显示标题
+
+显示标题和内容（服务号通道除外）
+
+推送内容保留时间
+
+1天
+
+3天
+
+单 IP 每天 API 最大请求次数
+
+5000
+
+5000
+
+单 UID 每天 API 最大请求次数
+
+1000
+
+1000
+
+单 Sendkey 每天 API 最大请求次数
+
+1000
+
+1000
+
+每分钟最多发送条数
+
+50
+
+50，此限制主要防止程序出错
+
+
+最新版和旧版（sc.ftqq.com）的兼容性
+新版（ sct.ftqq.com ）完全兼容旧版（ sc.ftqq.com ） API（毕竟只有一个），只需要更换域名和 sckey/sendkey 即可。实在无法更换域名的地方，可以只更换 sendkey ，但这样需要依赖新浪云做消息转发，稳定性低，不推荐。
+FAQ
+为什么要做新版？
+
+主要有两个原因，一是微信之前发布公告下线模板消息（后来貌似不了了之了😳），这将导致旧版完全不可用；二是随着旧版用户的不断增加，我们的资源不够用了。这些资源包括服务器、也包括微信对模板消息发送的每日配额。
+这都要求我们从对微信通道依赖中脱离出来，于是我们开发了新版Server酱。
+
+
+
+
+
+在线发送工具📗 Markdown 语法参考发送默认通道服务号Android客户端自定义Web hookPushDeer企业微信应用消息企业微信群Bark iOS钉钉群飞书群API调用实例Dart、Go、Java、NodeJS、PHP、Python、Rust、Shell、Swift语言调用实例
+GitHub·国外网络 | Gitee·国内网络最简单的调用方式，直接在浏览器中输入以下 URL：https://sctapi.ftqq.com/****************.send?title=messagetitle
+这样发送只有标题，如果需要内容，可以这样：（如果你要发送中文，记得要把参数编码，比如通过 urlencode 函数。换行也是。）https://sctapi.ftqq.com/****************.send?title=messagetitle&desp=messagecontent
+但是需要注意，GET 请求是有长度限制的，所以还是建议大家使用 POST 请求来发送。API 详细说明
+发起推送
+向以下 URL 发送一个 HTTP 请求，并传递参数即可。https://sctapi.ftqq.com/****************.send参数说明如下：
+title: 消息标题，必填。最大长度为 32 。
+
+desp: 消息内容，选填。支持 Markdown语法 ，最大长度为 32KB ,消息卡片截取前 30 显示。
+
+short: 消息卡片内容，选填。最大长度64。如果不指定，将自动从desp中截取生成。
+
+noip: 是否隐藏调用IP，选填。如果不指定，则显示；为1则隐藏。
+
+channel: 动态指定本次推送使用的消息通道，选填。如不指定，则使用网站上的消息通道页面设置的通道。支持最多两个通道，多个通道值用竖线|隔开。比如，同时发送服务号和企业微信应用消息通道，则使用 9|66 。通道对应的值如下：
+
+官方Android版·β=98
+
+企业微信应用消息=66
+
+企业微信群机器人=1
+
+钉钉群机器人=2
+
+飞书群机器人=3
+
+Bark iOS=8
+
+测试号=0
+
+自定义=88
+
+PushDeer=18
+
+方糖服务号=9
+
+openid: 消息抄送的openid，选填。只支持测试号和企业微信应用消息通道。测试号的 openid 从测试号页面获得 ，多个 openid 用 , 隔开。企业微信应用消息通道的 openid 参数，内容为接收人在企业微信中的 UID（可在消息通道页面配置好该通道后通过链接查看） , 多个人请 | 隔开，即可发给特定人/多个人。不填则发送给通道配置页面的接收人。
+
+如果采用GET，请将参数通过`urlencode`编码；
+如果采用 POST 方式，默认以 FORM 方式解码，
+如果要通过 JSON 格式传递，请在 Header 中指定 `Content-type` 为 `application/json`，比如：
+curl -X "POST" "https://sctapi.ftqq.com/key.send" -H 'Content-Type: application/json;charset=utf-8' -d ...
+查询推送状态
+调用发起推送接口后，我们并不是立刻调用微信接口，而是会将任务放入异步推送队列。所以返回的结果是放入队列是否成功。
+如果想要查询微信发是否成功，请将其返回中的 pushid 和 readkey，发送到以下 URL 查询。
+注意 pushid 是用 id 参数传递。https://sctapi.ftqq.com/push?id={pushid}&readkey={readkey}返回值中，wxstatus 即为微信接口返回的内容。为空则该任务可能还未执行。
+调用函数
+PHP
+function sc_send(  $text , $desp = '' , $key = '[SENDKEY]'  )
+{
+    $postdata = http_build_query( array( 'text' => $text, 'desp' => $desp ));
+    $opts = array('http' =>
+    array(
+        'method'  => 'POST',
+        'header'  => 'Content-type: application/x-www-form-urlencoded',
+        'content' => $postdata));
+    
+    $context  = stream_context_create($opts);
+    return $result = file_get_contents('https://sctapi.ftqq.com/'.$key.'.send', false, $context);
+
+
+}
+
+Plain Text
+
+
+
+
+
+
+
+端对端加密
+新版Server酱支持消息的端对端加密。其流程为：
+在调用接口之前，先将 desp 内容通过加密函数（下文会讲算法）进行加密
+
+在调用接口时，通过 desp 传递加密后的内容，同时传递 encoded 参数 = 1
+
+在详情页面输入加密函数中传递的密码，通过JS在客户端界面查看内容
+
+加密函数（ PHP版 ）的参数为：
+content : 需要加密的内容
+
+key : 阅读时输入的密码
+
+iv : 固定字串，由 SCT 和 UID 拼接而成。比如 UID 为1，那么 iv 即为 SCT1。本页面最下方可查看当前用户UID。
+
+function sc_encode($content, $key, $iv)
+{
+    $key = substr(md5($key), 0, 16);
+    $iv = substr(md5($iv), 0, 16);
+    return openssl_encrypt(base64_encode($content), 'AES-128-CBC', $key, 0, $iv);
+}
+
+Plain Text
+
+
+
+
+
+
+
+当前用户的UID为 270927
