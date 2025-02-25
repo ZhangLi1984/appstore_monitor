@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 
 # 配置参数
-COUNTRY_CODE = "cn"  # 中国区
+DEFAULT_COUNTRY_CODE = "cn"  # Default to China if not specified in config
 FANGTANG_KEY = os.environ.get("FANGTANG_KEY", "")  # 从环境变量获取方糖 KEY
 APP_INFO_FILE = "app_info.json"  # 应用信息 JSON 文件
 STATUS_FILE = "app_status.json"  # 应用状态记录文件
@@ -23,10 +23,21 @@ def load_app_info():
     """从 JSON 文件加载应用信息"""
     try:
         with open(APP_INFO_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+            
+        # Handle both the old format (list of apps) and new format (object with default_country and apps)
+        if isinstance(data, list):
+            # Old format - convert to new format with default country
+            return {
+                "default_country": DEFAULT_COUNTRY_CODE,
+                "apps": data
+            }
+        else:
+            # New format - return as is
+            return data
     except Exception as e:
         logging.error(f"加载应用信息文件失败: {str(e)}")
-        return []
+        return {"default_country": DEFAULT_COUNTRY_CODE, "apps": []}
 
 def load_app_status():
     """加载上次的应用状态"""
@@ -47,14 +58,18 @@ def load_app_status():
 def create_initial_status_file():
     """创建初始状态文件"""
     try:
-        app_info = load_app_info()
+        app_config = load_app_info()
+        default_country = app_config.get("default_country", DEFAULT_COUNTRY_CODE)
+        app_info = app_config.get("apps", [])
         initial_status = {}
         
         for app in app_info:
             app_id = app["id"]
+            country_code = app.get("country", default_country)
             initial_status[app_id] = {
                 "status": "unknown",  # 初始状态为未知
                 "name": app["name"],
+                "country": country_code,
                 "last_check": "未检查"
             }
         
@@ -73,10 +88,11 @@ def save_app_status(status_dict):
     except Exception as e:
         logging.error(f"保存应用状态失败: {str(e)}")
 
-def get_app_info(app_id: str, default_name: str) -> dict:
+def get_app_info(app_id: str, default_name: str, country_code: str = DEFAULT_COUNTRY_CODE) -> dict:
     """通过 App ID 获取应用信息"""
     try:
-        params = {"id": app_id, "country": COUNTRY_CODE}
+        params = {"id": app_id, "country": country_code}
+        logging.info(f"查询应用 ID: {app_id}, 国家/地区: {country_code}")
         response = requests.get("https://itunes.apple.com/lookup", params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -88,13 +104,14 @@ def get_app_info(app_id: str, default_name: str) -> dict:
                 "name": result.get("trackName", default_name),
                 "version": result.get("version", "未知"),
                 "price": result.get("formattedPrice", "未知"),
-                "url": result.get("trackViewUrl", "")
+                "url": result.get("trackViewUrl", ""),
+                "country": country_code
             }
-        return {"status": "offline", "name": default_name}
+        return {"status": "offline", "name": default_name, "country": country_code}
     
     except Exception as e:
-        logging.error(f"查询 {app_id} 失败: {str(e)}")
-        return {"status": "error", "name": default_name}
+        logging.error(f"查询 {app_id} (国家/地区: {country_code}) 失败: {str(e)}")
+        return {"status": "error", "name": default_name, "country": country_code}
 
 def send_to_fangtang(title, content, short):
     """发送消息到方糖"""
@@ -145,8 +162,11 @@ def format_app_detail(info, app_id):
     """格式化应用详细信息"""
     status_icon = "✅" if info["status"] == "online" else "🚫" if info["status"] == "offline" else "❌"
     
-    # 简洁格式，只显示状态、ID和名称
-    return f"{status_icon} **{info['name']}** (ID: {app_id})"
+    # Include country code in the display
+    country = info.get("country", DEFAULT_COUNTRY_CODE).upper()
+    
+    # 简洁格式，显示状态、ID、名称和国家/地区
+    return f"{status_icon} **{info['name']}** (ID: {app_id}, 区域: {country})"
 
 def send_offline_alert(newly_offline_apps):
     """发送应用下架警告"""
@@ -181,10 +201,13 @@ def monitor(force_send=False):
     logging.info("开始检查应用状态")
     
     # 加载应用信息和上次状态
-    app_info = load_app_info()
-    if not app_info:
+    app_config = load_app_info()
+    if not app_config or not app_config.get("apps"):
         logging.error("没有找到应用信息，请检查 app_info.json 文件")
         return
+    
+    default_country = app_config.get("default_country", DEFAULT_COUNTRY_CODE)
+    app_info = app_config.get("apps", [])
     
     previous_status = load_app_status()
     current_status = {}  # Create new status dictionary
@@ -198,14 +221,17 @@ def monitor(force_send=False):
     for app in app_info:
         app_id = app["id"]
         default_name = app["name"]
+        # Get country code from app config or use default
+        country_code = app.get("country", default_country)
         
         # 查询应用状态
-        info = get_app_info(app_id, default_name)
+        info = get_app_info(app_id, default_name, country_code)
         
         # 保存当前状态
         current_status[app_id] = {
             "status": info["status"],
             "name": info["name"],
+            "country": country_code,
             "last_check": get_china_time().strftime('%Y-%m-%d %H:%M:%S')
         }
         
