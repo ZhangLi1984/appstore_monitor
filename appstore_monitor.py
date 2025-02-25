@@ -78,12 +78,18 @@ def send_to_fangtang(title, content, short):
         logging.error(f"方糖推送异常: {str(e)}")
         return False
 
-def is_within_time_range():
-    """检查当前是否在中国时间 8:00-22:00 范围内"""
+def get_china_time():
+    """获取中国时间"""
     # 获取当前 UTC 时间
     utc_now = datetime.now(timezone.utc)
     # 转换为中国时间 (UTC+8)
     china_now = utc_now + timedelta(hours=8)
+    return china_now
+
+def is_within_time_range():
+    """检查当前是否在中国时间 8:00-22:00 范围内"""
+    # 获取中国时间
+    china_now = get_china_time()
     # 提取小时
     hour = china_now.hour
     # 检查是否在 8-22 点之间
@@ -131,23 +137,33 @@ def monitor(force_send=False):
             error_apps.append(format_app_detail(info, app_id))
             logging.error(f"❌ [ID: {app_id}] 查询异常，名称: {info['name']}")
     
-    # 构建推送内容
-    title = f"AppStore 监控报告 - {datetime.now().strftime('%H:%M')}"
+    # 获取中国时间并格式化
+    china_time = get_china_time()
+    time_str = china_time.strftime('%H:%M')
     
-    # 构建简洁的消息内容
+    # 构建推送内容
+    title = f"AppStore 监控报告 - {time_str} (中国时间)"
+    
+    # 构建简洁的消息内容，确保每个应用单独一行
     content = ""
     
     if online_apps:
         content += "## 📱 在线应用\n\n"
-        content += "\n".join(online_apps) + "\n\n"
+        # 每个应用单独一行，并在每个应用后添加两个换行符
+        for app in online_apps:
+            content += f"{app}\n\n"
     
     if offline_apps:
         content += "## 🚫 已下架应用\n\n"
-        content += "\n".join(offline_apps) + "\n\n"
+        # 每个应用单独一行，并在每个应用后添加两个换行符
+        for app in offline_apps:
+            content += f"{app}\n\n"
     
     if error_apps:
         content += "## ❌ 查询异常\n\n"
-        content += "\n".join(error_apps)
+        # 每个应用单独一行，并在每个应用后添加两个换行符
+        for app in error_apps:
+            content += f"{app}\n\n"
     
     # 构建消息卡片内容
     online_count = len(online_apps)
