@@ -281,6 +281,12 @@ def monitor(force_send=False):
     error_apps = []
     newly_offline_apps = []  # 新下架的应用
     
+    # 添加区域统计
+    region_stats = {
+        "cn": {"online": 0, "offline": 0, "error": 0},
+        "us": {"online": 0, "offline": 0, "error": 0}
+    }
+    
     # 遍历每个应用及其指定的国家/地区
     for app in app_info:
         app_id = app["id"]
@@ -313,12 +319,15 @@ def monitor(force_send=False):
             # 按状态分类
             if info["status"] == "online":
                 online_apps.append(format_app_detail(info))
+                region_stats[country]["online"] += 1
                 logging.info(f"✅ [ID: {app_id}] 名称: {info['name']} 区域: {country.upper()}")
             elif info["status"] == "offline":
                 offline_apps.append(format_app_detail(info))
+                region_stats[country]["offline"] += 1
                 logging.warning(f"🚨 [ID: {app_id}] 应用已下架！名称: {info['name']} 区域: {country.upper()}")
             else:
                 error_apps.append(format_app_detail(info))
+                region_stats[country]["error"] += 1
                 logging.error(f"❌ [ID: {app_id}] 查询异常，名称: {info['name']} 区域: {country.upper()}")
     
     # 保存当前状态
@@ -335,24 +344,31 @@ def monitor(force_send=False):
     # 构建推送内容
     title = f"AppStore 监控报告 - {time_str} (中国时间)"
     
-    # 构建简洁的消息内容，确保每个应用单独一行
-    content = ""
+    # 添加区域统计信息
+    content = "## 📊 区域统计\n\n"
+    content += f"🇨🇳 中国区：在线 {region_stats['cn']['online']} 款 | 下架 {region_stats['cn']['offline']} 款"
+    if region_stats['cn']['error'] > 0:
+        content += f" | 异常 {region_stats['cn']['error']} 款"
+    content += "\n\n"
     
+    content += f"🇺🇸 美国区：在线 {region_stats['us']['online']} 款 | 下架 {region_stats['us']['offline']} 款"
+    if region_stats['us']['error'] > 0:
+        content += f" | 异常 {region_stats['us']['error']} 款"
+    content += "\n\n"
+    
+    # 添加应用详细信息
     if online_apps:
         content += "## 📱 在线应用\n\n"
-        # 每个应用单独一行，并在每个应用后添加两个换行符
         for app in online_apps:
             content += f"{app}\n\n"
     
     if offline_apps:
         content += "## 🚫 已下架应用\n\n"
-        # 每个应用单独一行，并在每个应用后添加两个换行符
         for app in offline_apps:
             content += f"{app}\n\n"
     
     if error_apps:
         content += "## ❌ 查询异常\n\n"
-        # 每个应用单独一行，并在每个应用后添加两个换行符
         for app in error_apps:
             content += f"{app}\n\n"
     
@@ -361,7 +377,9 @@ def monitor(force_send=False):
     offline_count = len(offline_apps)
     error_count = len(error_apps)
     
-    short = f"在线: {online_count} | 下架: {offline_count}"
+    short = f"CN区在线: {region_stats['cn']['online']} | US区在线: {region_stats['us']['online']}"
+    if offline_count > 0:
+        short += f" | 下架: {offline_count}"
     if error_count > 0:
         short += f" | 异常: {error_count}"
     
