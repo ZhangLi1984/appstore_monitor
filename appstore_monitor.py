@@ -359,19 +359,67 @@ def monitor(force_send=False):
     # 添加应用详细信息
     if online_apps:
         content += "## 📱 在线应用\n\n"
-        for app in online_apps:
-            content += f"{app}\n\n"
+        
+        # 按区域分组应用
+        cn_apps = [app for app in online_apps if "区域: CN" in app]
+        us_apps = [app for app in online_apps if "区域: US" in app]
+        
+        if cn_apps:
+            content += "### 🇨🇳 中国区\n\n"
+            for i, app in enumerate(cn_apps, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(cn_apps):
+                    content += "---\n\n"
+        
+        if us_apps:
+            content += "### 🇺🇸 美国区\n\n"
+            for i, app in enumerate(us_apps, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(us_apps):
+                    content += "---\n\n"
     
     if offline_apps:
         content += "## 🚫 已下架应用\n\n"
-        for app in offline_apps:
-            content += f"{app}\n\n"
-    
+        
+        # 按区域分组下架应用
+        cn_offline = [app for app in offline_apps if "区域: CN" in app]
+        us_offline = [app for app in offline_apps if "区域: US" in app]
+        
+        if cn_offline:
+            content += "### 🇨🇳 中国区\n\n"
+            for i, app in enumerate(cn_offline, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(cn_offline):
+                    content += "---\n\n"
+        
+        if us_offline:
+            content += "### 🇺🇸 美国区\n\n"
+            for i, app in enumerate(us_offline, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(us_offline):
+                    content += "---\n\n"
+
     if error_apps:
         content += "## ❌ 查询异常\n\n"
-        for app in error_apps:
-            content += f"{app}\n\n"
-    
+        
+        # 按区域分组异常应用
+        cn_error = [app for app in error_apps if "区域: CN" in app]
+        us_error = [app for app in error_apps if "区域: US" in app]
+        
+        if cn_error:
+            content += "### 🇨🇳 中国区\n\n"
+            for i, app in enumerate(cn_error, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(cn_error):
+                    content += "---\n\n"
+        
+        if us_error:
+            content += "### 🇺🇸 美国区\n\n"
+            for i, app in enumerate(us_error, 1):
+                content += f"{app}\n\n"
+                if i % 5 == 0 and i < len(us_error):
+                    content += "---\n\n"
+
     # 构建消息卡片内容
     online_count = len(online_apps)
     offline_count = len(offline_apps)
