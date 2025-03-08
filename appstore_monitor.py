@@ -165,17 +165,29 @@ def get_app_info(app_id: str, default_name: str, country_code: str = DEFAULT_COU
             return {
                 "status": "online",
                 "name": result.get("trackName", default_name),
+                "developer": result.get("sellerName", "未知开发者"),  # 获取开发者名称
                 "version": result.get("version", "未知"),
                 "price": result.get("formattedPrice", "未知"),
                 "url": result.get("trackViewUrl", ""),
                 "country": country_code,
                 "app_id": app_id
             }
-        return {"status": "offline", "name": default_name, "country": country_code, "app_id": app_id}
+        return {"status": "offline", "name": default_name, "developer": "未知开发者", "country": country_code, "app_id": app_id}
     
     except Exception as e:
         logging.error(f"查询 {app_id} (国家/地区: {country_code}) 失败: {str(e)}")
-        return {"status": "error", "name": default_name, "country": country_code, "app_id": app_id}
+        return {"status": "error", "name": default_name, "developer": "未知开发者", "country": country_code, "app_id": app_id}
+
+def format_app_detail(info):
+    """格式化应用详细信息"""
+    status_icon = "✅" if info["status"] == "online" else "🚫" if info["status"] == "offline" else "❌"
+    
+    country = info["country"].upper()
+    app_id = info["app_id"]
+    developer = info.get("developer", "未知开发者")
+    
+    # 简洁格式，显示状态、ID、名称、开发者和国家/地区
+    return f"{status_icon} **{info['name']}** (开发者: {developer}, ID: {app_id}, 区域: {country})"
 
 def send_to_fangtang(title, content, short):
     """发送消息到方糖"""
