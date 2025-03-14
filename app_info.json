@@ -103,5 +103,25 @@
     "id": "6743022272",
     "name": "Dnivorix",
     "countries": ["us"]
+  },
+  {
+    "id": "6743118519",
+    "name": "LexiVora",
+    "countries": ["us"]
+  },
+  {
+    "id": "6743156521",
+    "name": "OptiVoxa",
+    "countries": ["us"]
+  },
+  {
+    "id": "6743118405",
+    "name": "VerSei",
+    "countries": ["us"]
+  },
+  {
+    "id": "6743156326",
+    "name": "Tactolux",
+    "countries": ["us"]
   }
 ]
