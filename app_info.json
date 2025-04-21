@@ -40,8 +40,13 @@
     "countries": ["cn"]
   },
   {
-    "id": "6743264730",
+    "id": "6743264730", 
     "name": "群英:方块拼图",
+    "countries": ["cn"]
+  },
+  {
+    "id": "6744669116",
+    "name": "少年名将-帝魂千抽版", 
     "countries": ["cn"]
   },
   {
@@ -127,6 +132,26 @@
   {
     "id": "6743156326",
     "name": "Tactolux",
+    "countries": ["us"]
+  },
+  {
+    "id": "6743995142",
+    "name": "Sylvorix",
+    "countries": ["us"]
+  },
+  {
+    "id": "6744004963",
+    "name": "Veltrixa",
+    "countries": ["us"]
+  },
+  {
+    "id": "6744013173",
+    "name": "Jyntharil",
+    "countries": ["us"]
+  },
+  {
+    "id": "6743995088",
+    "name": "Quilphora",
     "countries": ["us"]
   }
 ]
