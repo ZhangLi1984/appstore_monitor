@@ -45,6 +45,24 @@
             color: #6b7280;
             font-size: 13px;
         }
+        .auto-refresh-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #92400e;
+        }
+        .auto-refresh-info.hidden {
+            display: none;
+        }
+        .countdown {
+            font-weight: bold;
+            color: #d97706;
+        }
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -62,6 +80,14 @@
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
         }
         button:active { transform: translateY(0); }
+        button.secondary {
+            background: #6b7280;
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        button.secondary:hover {
+            background: #4b5563;
+        }
         .stats-container {
             display: flex;
             gap: 20px;
@@ -248,7 +274,11 @@
             <h2>📱 AppStore 状态监控大盘</h2>
             <div class="header-info">
                 <span class="last-update" id="last-update"></span>
-                <button onclick="startCheck()">🔄 刷新状态</button>
+                <div class="auto-refresh-info hidden" id="auto-refresh-panel">
+                    <span>🔄 <span id="auto-refresh-text">异常检测中，<span class="countdown" id="countdown">30</span>秒后自动刷新</span></span>
+                    <button class="secondary" onclick="toggleAutoRefresh()" id="auto-refresh-btn">暂停</button>
+                </div>
+                <button onclick="manualRefresh()">🔄 刷新状态</button>
             </div>
         </div>
 
@@ -288,6 +318,13 @@
     </div>
 
     <script>
+        // 自动刷新相关变量
+        let autoRefreshTimer = null;
+        let countdownTimer = null;
+        let countdownValue = 30;
+        let isAutoRefreshPaused = false;
+        const AUTO_REFRESH_INTERVAL = 30; // 30秒
+
         // 利用 JSONP 绕过 Apple iTunes API 的浏览器跨域限制
         function fetchItunesJSONP(id, country) {
             return new Promise((resolve, reject) => {
