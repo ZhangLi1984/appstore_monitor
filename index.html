@@ -324,13 +324,18 @@
         let countdownValue = 30;
         let isAutoRefreshPaused = false;
         const AUTO_REFRESH_INTERVAL = 30; // 30秒
+        
+        // 请求配置
+        const MAX_CONCURRENT = 3; // 最大并发请求数
+        const RETRY_COUNT = 2; // 重试次数
+        const RETRY_DELAY = 1000; // 重试延迟(ms)
 
         // 利用 JSONP 绕过 Apple iTunes API 的浏览器跨域限制
-        function fetchItunesJSONP(id, country) {
+        function fetchItunesJSONP(id, country, retries = RETRY_COUNT) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'itunes_cb_' + Math.round(1000000 * Math.random());
                 let resolved = false;
-                const timeout = 15000; // 15秒超时
+                const timeout = 10000; // 10秒超时
                 
                 const cleanup = () => {
                     delete window[callbackName];
@@ -352,19 +357,91 @@
                     if (resolved) return;
                     resolved = true;
                     cleanup();
-                    reject(new Error('Network Error'));
+                    
+                    // 重试逻辑
+                    if (retries > 0) {
+                        setTimeout(() => {
+                            fetchItunesJSONP(id, country, retries - 1).then(resolve).catch(reject);
+                        }, RETRY_DELAY);
+                    } else {
+                        reject(new Error('Network Error'));
+                    }
                 };
                 document.body.appendChild(script);
                 
-                // 超时处理
+                // 超时处理 - 带重试
                 setTimeout(() => {
                     if (!resolved) {
                         resolved = true;
                         cleanup();
-                        reject(new Error('Timeout'));
+                        
+                        if (retries > 0) {
+                            setTimeout(() => {
+                                fetchItunesJSONP(id, country, retries - 1).then(resolve).catch(reject);
+                            }, RETRY_DELAY);
+                        } else {
+                            reject(new Error('Timeout'));
+                        }
                     }
                 }, timeout);
             });
+        }
+        
+        // 并发控制 - 分批请求
+        async function fetchWithConcurrency(apps, onProgress) {
+            const results = [];
+            const total = apps.length;
+            let completed = 0;
+            
+            for (let i = 0; i < apps.length; i += MAX_CONCURRENT) {
+                const batch = apps.slice(i, i + MAX_CONCURRENT);
+                const batchResults = await Promise.all(
+                    batch.map(app => {
+                        const countries = app.countries || ['cn'];
+                        return Promise.all(
+                            countries.map(country => 
+                                fetchItunesJSONP(app.id, country).then(data => {
+                                    let status = 'error';
+                                    let name = app.name;
+                                    let developer = '-';
+                                    let iconUrl = '';
+                                    
+                                    if (data && data.resultCount > 0) {
+                                        status = 'online';
+                                        name = data.results[0].trackName;
+                                        developer = data.results[0].sellerName || '未知开发者';
+                                        iconUrl = data.results[0].artworkUrl60 || '';
+                                    } else if (data && data.resultCount === 0) {
+                                        status = 'offline';
+                                    }
+                                    
+                                    return { id: app.id, name, country, status, developer, iconUrl, error: null };
+                                }).catch(err => {
+                                    return { id: app.id, name: app.name, country, status: 'error', developer: '-', iconUrl: '', error: err.message };
+                                })
+                            )
+                        );
+                    })
+                );
+                
+                // 扁平化结果
+                batchResults.forEach(appResults => {
+                    appResults.forEach(result => {
+                        results.push(result);
+                        completed++;
+                        if (onProgress) {
+                            onProgress(completed, total);
+                        }
+                    });
+                });
+                
+                // 批次间延迟，避免请求过快
+                if (i + MAX_CONCURRENT < apps.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            return results;
         }
 
         async function startCheck() {
@@ -400,41 +477,12 @@
                 us: { online: 0, offline: 0, error: 0 }
             };
 
-            const checkPromises = [];
-            let errorCount = 0;
-            let networkErrors = [];
-            
-            apps.forEach(app => {
-                const countries = app.countries || ['cn'];
-                countries.forEach(country => {
-                    const promise = fetchItunesJSONP(app.id, country).then(data => {
-                        let status = 'error';
-                        let name = app.name;
-                        let developer = '-';
-                        let iconUrl = '';
-                        
-                        if (data && data.resultCount > 0) {
-                            status = 'online';
-                            name = data.results[0].trackName;
-                            developer = data.results[0].sellerName || '未知开发者';
-                            iconUrl = data.results[0].artworkUrl60 || '';
-                        } else if (data && data.resultCount === 0) {
-                            status = 'offline';
-                        } else if (data) {
-                            networkErrors.push(`${app.name}(${app.id}): 返回数据异常`);
-                        }
-
-                        return { id: app.id, name, country, status, developer, iconUrl };
-                    }).catch(err => {
-                        errorCount++;
-                        networkErrors.push(`${app.name}(${app.id}): ${err.message}`);
-                        return { id: app.id, name: app.name, country, status: 'error', developer: '-', iconUrl: '' };
-                    });
-                    checkPromises.push(promise);
-                });
+            // 使用并发控制获取结果
+            let results = await fetchWithConcurrency(apps, (completed, total) => {
+                // 更新加载状态显示进度
+                onlineList.innerHTML = `<div class="loading"><div class="loading-spinner"></div>🔍 正在检查应用状态... (${completed}/${total})</div>`;
+                offlineList.innerHTML = `<div class="loading"><div class="loading-spinner"></div>🔍 正在检查应用状态... (${completed}/${total})</div>`;
             });
-
-            let results = await Promise.all(checkPromises);
             
             // 按 appid 降序排列
             results.sort((a, b) => parseInt(b.id) - parseInt(a.id));
@@ -511,13 +559,97 @@
             const now = new Date();
             lastUpdate.textContent = `最后更新: ${now.toLocaleString('zh-CN')}`;
             
-            // 显示调试信息
-            if (errorCount > 0 || networkErrors.length > 0) {
-                debugMsg.innerHTML = `共检查 ${apps.length} 个应用，${errorCount} 个网络错误。<br>详情: ${networkErrors.slice(0, 5).join('; ')}${networkErrors.length > 5 ? '...' : ''}`;
+            // 显示调试信息（仅显示真正的错误，不显示重试成功的）
+            const realErrors = errorApps.filter(a => a.error);
+            if (realErrors.length > 0) {
+                const errorDetails = realErrors.slice(0, 3).map(a => `${a.name}(${a.id})`).join('; ');
+                debugMsg.innerHTML = `${realErrors.length} 个应用检查失败: ${errorDetails}${realErrors.length > 3 ? '...' : ''}`;
                 debugPanel.style.display = 'block';
-            } else if (onlineApps.length === 0 && offlineApps.length === 0) {
-                debugMsg.textContent = '所有应用均返回异常，可能是网络问题或 API 限制，请稍后重试';
-                debugPanel.style.display = 'block';
+            }
+
+            // 如果有异常应用，启动自动刷新
+            if (errorApps.length > 0) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        // 手动刷新
+        function manualRefresh() {
+            stopAutoRefresh();
+            startCheck();
+        }
+
+        // 启动自动刷新
+        function startAutoRefresh() {
+            if (isAutoRefreshPaused) return;
+            
+            const panel = document.getElementById('auto-refresh-panel');
+            panel.classList.remove('hidden');
+            
+            // 清除已有的定时器
+            if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            countdownValue = AUTO_REFRESH_INTERVAL;
+            updateCountdown();
+            
+            // 启动倒计时
+            countdownTimer = setInterval(() => {
+                countdownValue--;
+                updateCountdown();
+                if (countdownValue <= 0) {
+                    clearInterval(countdownTimer);
+                }
+            }, 1000);
+            
+            // 启动自动刷新定时器
+            autoRefreshTimer = setTimeout(() => {
+                if (!isAutoRefreshPaused) {
+                    startCheck();
+                }
+            }, AUTO_REFRESH_INTERVAL * 1000);
+        }
+
+        // 更新倒计时显示
+        function updateCountdown() {
+            const countdownEl = document.getElementById('countdown');
+            countdownEl.textContent = countdownValue;
+        }
+
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearTimeout(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+            const panel = document.getElementById('auto-refresh-panel');
+            panel.classList.add('hidden');
+        }
+
+        // 切换自动刷新暂停/继续
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('auto-refresh-btn');
+            const text = document.getElementById('auto-refresh-text');
+            
+            if (isAutoRefreshPaused) {
+                // 继续
+                isAutoRefreshPaused = false;
+                btn.textContent = '暂停';
+                text.innerHTML = '异常检测中，<span class="countdown" id="countdown">' + countdownValue + '</span>秒后自动刷新';
+                startAutoRefresh();
+            } else {
+                // 暂停
+                isAutoRefreshPaused = true;
+                btn.textContent = '继续';
+                text.textContent = '自动刷新已暂停';
+                if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+                if (countdownTimer) clearInterval(countdownTimer);
             }
         }
 
