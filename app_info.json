@@ -19,7 +19,7 @@
     "name": "超凡三国-神魔自选",
     "countries": ["cn"]
   },
-    {
+  {
     "id": "6746795827",
     "name": "天阶岛:千抽神宠疯狂洗练",
     "countries": ["cn"]
@@ -50,128 +50,33 @@
     "countries": ["cn"]
   },
   {
-    "id": "6743264730", 
+    "id": "6743264730",
     "name": "群英:方块拼图",
     "countries": ["cn"]
   },
   {
     "id": "6744669116",
-    "name": "少年名将-帝魂千抽版", 
+    "name": "少年名将-帝魂千抽版",
     "countries": ["cn"]
   },
   {
-    "id": "6742454920",
-    "name": "FXHNews",
-    "countries": ["us"]
-  },
-   {
-    "id": "6751053794",
-    "name": "arvessa",
-    "countries": ["us"]
-  },
-     {
-    "id": "6751053024",
-    "name": "virelia",
-    "countries": ["us"]
+    "id": "6758969774",
+    "name": "如梦下弦月-命运羁绊少女战队",
+    "countries": ["cn"]
   },
   {
-    "id": "6741378583",
-    "name": "Fynoraclipt",
-    "countries": ["us"]
+    "id": "6757979864",
+    "name": "少年名将-千抽帝尊武将红包版",
+    "countries": ["cn"]
   },
   {
-    "id": "6742042787",
-    "name": "Florvipet",
-    "countries": ["us"]
+    "id": "6753940757",
+    "name": "火线战姬",
+    "countries": ["cn"]
   },
   {
-    "id": "6742042930",
-    "name": "Uryvortex",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742251791",
-    "name": "Heglynxvor",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742251793",
-    "name": "Ghyntherion",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742696280",
-    "name": "Ghyntherion",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742901141",
-    "name": "Flomirent",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742934534",
-    "name": "Lumivox",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742899104",
-    "name": "NeoviStry",
-    "countries": ["us"]
-  },
-  {
-    "id": "6742935432",
-    "name": "Rynaluxor",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743023661",
-    "name": "Pixorun",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743022272",
-    "name": "Dnivorix",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743118519",
-    "name": "LexiVora",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743156521",
-    "name": "OptiVoxa",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743118405",
-    "name": "VerSei",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743156326",
-    "name": "Tactolux",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743995142",
-    "name": "Sylvorix",
-    "countries": ["us"]
-  },
-  {
-    "id": "6744004963",
-    "name": "Veltrixa",
-    "countries": ["us"]
-  },
-  {
-    "id": "6744013173",
-    "name": "Jyntharil",
-    "countries": ["us"]
-  },
-  {
-    "id": "6743995088",
-    "name": "Quilphora",
-    "countries": ["us"]
+    "id": "6754607554",
+    "name": "放开那妖怪-国风漫改高颜值西游冒险手游",
+    "countries": ["cn"]
   }
 ]
