@@ -93,6 +93,7 @@
         .columns-container {
             display: flex;
             gap: 25px;
+            align-items: flex-start;
         }
         .column {
             flex: 1;
@@ -129,8 +130,6 @@
         }
         .app-list {
             padding: 15px;
-            max-height: 600px;
-            overflow-y: auto;
         }
         .app-item {
             display: flex;
@@ -140,12 +139,23 @@
             margin-bottom: 10px;
             background: #f9fafb;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         .app-item:last-child { margin-bottom: 0; }
         .app-item:hover {
             background: #f3f4f6;
             transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
+        .app-item:active { transform: translateX(2px); }
+        .click-hint {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-left: auto;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .app-item:hover .click-hint { opacity: 1; }
         .app-icon {
             width: 50px;
             height: 50px;
@@ -186,6 +196,28 @@
         .status-online { color: #10b981; font-weight: bold; }
         .status-offline { color: #ef4444; font-weight: bold; }
         .status-error { color: #f59e0b; font-weight: bold; }
+        .error-column {
+            flex: 1;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .debug-info {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #92400e;
+        }
+        .debug-info code {
+            background: #fde68a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
         .loading {
             text-align: center;
             padding: 60px 20px;
@@ -218,6 +250,10 @@
                 <span class="last-update" id="last-update"></span>
                 <button onclick="startCheck()">🔄 刷新状态</button>
             </div>
+        </div>
+
+        <div class="debug-info" id="debug-panel" style="display: none;">
+            <strong>⚠️ 调试信息：</strong> <span id="debug-msg"></span>
         </div>
 
         <div class="stats-container" id="stats"></div>
@@ -256,20 +292,41 @@
         function fetchItunesJSONP(id, country) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'itunes_cb_' + Math.round(1000000 * Math.random());
-                window[callbackName] = function(data) {
+                let resolved = false;
+                const timeout = 15000; // 15秒超时
+                
+                const cleanup = () => {
                     delete window[callbackName];
-                    document.body.removeChild(script);
+                    if (script && script.parentNode) {
+                        script.parentNode.removeChild(script);
+                    }
+                };
+                
+                window[callbackName] = function(data) {
+                    if (resolved) return;
+                    resolved = true;
+                    cleanup();
                     resolve(data);
                 };
                 
                 const script = document.createElement('script');
                 script.src = `https://itunes.apple.com/lookup?id=${id}&country=${country}&callback=${callbackName}`;
                 script.onerror = () => {
-                    delete window[callbackName];
-                    document.body.removeChild(script);
-                    reject(new Error('Network or CORS Error'));
+                    if (resolved) return;
+                    resolved = true;
+                    cleanup();
+                    reject(new Error('Network Error'));
                 };
                 document.body.appendChild(script);
+                
+                // 超时处理
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        cleanup();
+                        reject(new Error('Timeout'));
+                    }
+                }, timeout);
             });
         }
 
@@ -280,7 +337,10 @@
             const errorColumn = document.getElementById('error-column');
             const statsDiv = document.getElementById('stats');
             const lastUpdate = document.getElementById('last-update');
+            const debugPanel = document.getElementById('debug-panel');
+            const debugMsg = document.getElementById('debug-msg');
             
+            debugPanel.style.display = 'none';
             onlineList.innerHTML = '<div class="loading"><div class="loading-spinner"></div>🚀 正在获取最新状态...</div>';
             offlineList.innerHTML = '<div class="loading"><div class="loading-spinner"></div>🚀 正在获取最新状态...</div>';
             errorColumn.style.display = 'none';
@@ -289,9 +349,12 @@
             try {
                 const res = await fetch('app_info.json');
                 apps = await res.json();
+                debugMsg.textContent = `已加载 ${apps.length} 个应用配置`;
             } catch (e) {
                 onlineList.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div>读取 app_info.json 失败<br>请使用本地服务器打开</div>`;
                 offlineList.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div>读取配置文件失败</div>`;
+                debugMsg.textContent = `读取配置失败: ${e.message}`;
+                debugPanel.style.display = 'block';
                 return;
             }
 
@@ -301,6 +364,9 @@
             };
 
             const checkPromises = [];
+            let errorCount = 0;
+            let networkErrors = [];
+            
             apps.forEach(app => {
                 const countries = app.countries || ['cn'];
                 countries.forEach(country => {
@@ -317,10 +383,14 @@
                             iconUrl = data.results[0].artworkUrl60 || '';
                         } else if (data && data.resultCount === 0) {
                             status = 'offline';
+                        } else if (data) {
+                            networkErrors.push(`${app.name}(${app.id}): 返回数据异常`);
                         }
 
                         return { id: app.id, name, country, status, developer, iconUrl };
                     }).catch(err => {
+                        errorCount++;
+                        networkErrors.push(`${app.name}(${app.id}): ${err.message}`);
                         return { id: app.id, name: app.name, country, status: 'error', developer: '-', iconUrl: '' };
                     });
                     checkPromises.push(promise);
@@ -356,11 +426,13 @@
 
                     const regionDisplay = region === 'cn' ? '🇨🇳 CN' : (region === 'us' ? '🇺🇸 US' : region.toUpperCase());
                     const iconEmoji = item.status === 'online' ? '📱' : (item.status === 'offline' ? '👻' : '❓');
+                    const storeUrl = `https://apps.apple.com/${region}/app/id${item.id}`;
 
                     const div = document.createElement('div');
                     div.className = 'app-item';
+                    div.onclick = () => window.open(storeUrl, '_blank');
                     div.innerHTML = `
-                        <div class="app-icon">${item.iconUrl ? `<img src="${item.iconUrl}" style="width:100%;height:100%;border-radius:12px;object-fit:cover;">` : iconEmoji}</div>
+                        <div class="app-icon">${item.iconUrl ? `<img src="${item.iconUrl}" style="width:100%;height:100%;border-radius:12px;object-fit:cover;" onerror="this.parentElement.innerHTML='${iconEmoji}'">` : iconEmoji}</div>
                         <div class="app-info">
                             <div class="app-name">${item.name}</div>
                             <div class="app-meta">
@@ -369,6 +441,7 @@
                                 <span title="${item.developer}">👤 ${item.developer.length > 10 ? item.developer.substring(0,10) + '...' : item.developer}</span>
                             </div>
                         </div>
+                        <span class="click-hint">🔗 App Store</span>
                     `;
                     container.appendChild(div);
                 });
@@ -400,6 +473,15 @@
             // 更新时间
             const now = new Date();
             lastUpdate.textContent = `最后更新: ${now.toLocaleString('zh-CN')}`;
+            
+            // 显示调试信息
+            if (errorCount > 0 || networkErrors.length > 0) {
+                debugMsg.innerHTML = `共检查 ${apps.length} 个应用，${errorCount} 个网络错误。<br>详情: ${networkErrors.slice(0, 5).join('; ')}${networkErrors.length > 5 ? '...' : ''}`;
+                debugPanel.style.display = 'block';
+            } else if (onlineApps.length === 0 && offlineApps.length === 0) {
+                debugMsg.textContent = '所有应用均返回异常，可能是网络问题或 API 限制，请稍后重试';
+                debugPanel.style.display = 'block';
+            }
         }
 
         window.onload = startCheck;
